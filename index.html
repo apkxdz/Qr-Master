@@ -1,0 +1,3635 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4a6bff">
+    <title>QR Master - ماسح ومولد QR</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        /* منع التحديد والنقر المطول */
+        * {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* بقية الأنماط كما هي */
+        :root {
+            --primary: #4a6bff;
+            --primary-light: #6d86ff;
+            --primary-dark: #2a52ff;
+            --secondary: #ff6b6b;
+            --dark: #1e293b;
+            --darker: #0f172a;
+            --light: #f8fafc;
+            --lighter: #ffffff;
+            --gray: #94a3b8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        /* الوضع الليلي */
+        .dark-mode {
+            --dark: #f8fafc;
+            --darker: #e2e8f0;
+            --light: #1e293b;
+            --lighter: #0f172a;
+            --gray: #64748b;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Tajawal', sans-serif;
+        }
+
+        body {
+            background-color: var(--light);
+            color: var(--dark);
+            overflow-x: hidden;
+            min-height: 100vh;
+            transition: var(--transition);
+        }
+
+        /* شاشة الترحيب */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease;
+        }
+
+        #splash-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .splash-logo {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+            fill: white;
+        }
+
+        .splash-title {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .splash-subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+
+        .progress-bar {
+            width: 80%;
+            max-width: 300px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            width: 0;
+            background: white;
+            border-radius: 4px;
+            transition: width 0.1s linear;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* التطبيق الرئيسي */
+        #app {
+            display: none;
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* شريط التبويبات السفلي */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: var(--lighter);
+            display: flex;
+            justify-content: space-around;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            transition: var(--transition);
+        }
+
+        .nav-item {
+            padding: 12px 0;
+            text-align: center;
+            flex: 1;
+            cursor: pointer;
+            transition: var(--transition);
+            color: var(--gray);
+            position: relative;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item.active::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 50%;
+            transform: translateX(50%);
+            width: 40%;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 0 0 3px 3px;
+        }
+
+        .nav-item i {
+            font-size: 20px;
+            display: block;
+            margin-bottom: 5px;
+            transition: var(--transition);
+        }
+
+        .nav-item span {
+            font-size: 12px;
+            font-weight: bold;
+            transition: var(--transition);
+        }
+
+        /* المحتوى الرئيسي */
+        .main-content {
+            padding: 20px;
+            padding-bottom: 80px;
+            transition: var(--transition);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .header h1 {
+            color: var(--primary);
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: var(--gray);
+            font-size: 14px;
+        }
+
+        /* بطاقات الواجهة */
+        .card {
+            background: var(--lighter);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .card:active {
+            transform: scale(0.98);
+        }
+
+        .card-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            font-weight: 700;
+        }
+
+        .card-title i {
+            margin-left: 10px;
+            color: var(--primary);
+        }
+
+        /* قسم إنشاء QR Code */
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .input-group input, 
+        .input-group textarea,
+        .input-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            font-size: 16px;
+            background-color: var(--lighter);
+            transition: var(--transition);
+            color: var(--dark);
+        }
+
+        .input-group input:focus, 
+        .input-group textarea:focus,
+        .input-group select:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(74, 107, 255, 0.2);
+        }
+
+        .input-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .color-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .color-option {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            position: relative;
+        }
+
+        .color-option.selected {
+            border-color: var(--dark);
+            transform: scale(1.1);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+
+        .color-option .check-icon {
+            display: none;
+            position: absolute;
+            font-size: 14px;
+        }
+
+        .color-option.selected .check-icon {
+            display: block;
+        }
+
+        .gradient-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .gradient-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .gradient-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .gradient-direction {
+            flex: 1;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(74, 107, 255, 0.2);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background: var(--lighter);
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #0d9e6e);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, var(--warning), #e6900e);
+        }
+
+        .qr-result {
+            margin-top: 30px;
+            text-align: center;
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        #generated-qr {
+            background-color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            max-width: 250px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .qr-logo {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20%;
+            height: 20%;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .action-buttons .btn {
+            flex: 1;
+            padding: 10px 5px;
+            font-size: 14px;
+        }
+
+        /* قسم مسح QR Code */
+        .scanner-container {
+            position: relative;
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 1/1;
+        }
+
+        #scanner-video {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+
+        #scan-canvas {
+            display: none;
+        }
+
+        .scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .scan-box {
+            width: 70%;
+            height: 70%;
+            max-width: 250px;
+            max-height: 250px;
+            border: 3px solid var(--primary);
+            border-radius: 8px;
+            position: relative;
+            animation: pulseBorder 2s infinite;
+        }
+
+        .scan-guide {
+            color: white;
+            text-align: center;
+            margin-top: 15px;
+            font-weight: bold;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .scan-result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--lighter);
+            border-radius: 12px;
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        .scan-result.active {
+            display: block;
+        }
+
+        .result-type {
+            display: inline-block;
+            padding: 3px 8px;
+            background: var(--primary);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        #scan-result-text {
+            word-break: break-all;
+            color: var(--dark);
+        }
+
+        .result-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 8px;
+        }
+
+        /* قسم التاريخ */
+        .history-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            transition: var(--transition);
+        }
+
+        .history-item:active {
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        .history-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin-left: 12px;
+            flex-shrink: 0;
+        }
+
+        .history-content {
+            flex: 1;
+        }
+
+        .history-title {
+            font-weight: bold;
+            margin-bottom: 3px;
+            color: var(--dark);
+        }
+
+        .history-date {
+            font-size: 12px;
+            color: var(--gray);
+        }
+
+        .history-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .history-actions button {
+            background: none;
+            border: none;
+            color: var(--gray);
+            font-size: 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .history-actions button:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--gray);
+        }
+
+        .empty-state i {
+            font-size: 50px;
+            margin-bottom: 15px;
+            color: rgba(0, 0, 0, 0.1);
+        }
+
+        /* إعدادات التطبيق */
+        .settings-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .settings-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--dark);
+        }
+
+        .settings-label i {
+            color: var(--primary);
+            font-size: 18px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* الرسوم المتحركة */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulseBorder {
+            0% { box-shadow: 0 0 0 0 rgba(74, 107, 255, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(74, 107, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(74, 107, 255, 0); }
+        }
+
+        /* التكيف مع الشاشات الصغيرة */
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 22px;
+            }
+            
+            .card-title {
+                font-size: 16px;
+            }
+            
+            .card {
+                padding: 15px;
+            }
+            
+            .input-group input, 
+            .input-group textarea,
+            .input-group select {
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+            
+            .btn {
+                padding: 12px 15px;
+                font-size: 14px;
+            }
+            
+            .action-buttons .btn,
+            .result-actions .btn {
+                font-size: 12px;
+                padding: 8px 5px;
+            }
+            
+            .history-item {
+                padding: 10px 0;
+            }
+            
+            .history-icon {
+                width: 36px;
+                height: 36px;
+                margin-left: 8px;
+            }
+            
+            .history-title {
+                font-size: 14px;
+            }
+            
+            .history-date {
+                font-size: 11px;
+            }
+            
+            .history-actions button {
+                width: 32px;
+                height: 32px;
+                font-size: 14px;
+            }
+        }
+
+        /* تحسينات للوضع الليلي */
+        .dark-mode .card {
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .dark-mode .bottom-nav {
+            border-top-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .dark-mode .input-group input,
+        .dark-mode .input-group textarea,
+        .dark-mode .input-group select {
+            border-color: rgba(255, 255, 255, 0.1);
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .dark-mode .history-item {
+            border-bottom-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .dark-mode .history-item:active {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .dark-mode .empty-state i {
+            color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* تصميمات إضافية لـ QR Code */
+        .qr-style-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .qr-style-option {
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            background-color: var(--lighter);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            transition: var(--transition);
+        }
+
+        .qr-style-option.selected {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* تحسينات للتفاعل */
+        .btn-loading {
+            position: relative;
+            pointer-events: none;
+        }
+
+        .btn-loading::after {
+            content: "";
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            right: 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* شاشة التعليمات */
+        .tutorial-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .tutorial-card {
+            background: var(--lighter);
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 500px;
+            width: 100%;
+            animation: fadeIn 0.5s;
+        }
+
+        .tutorial-card h2 {
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+
+        .tutorial-item {
+            margin-bottom: 20px;
+        }
+
+        .tutorial-item i {
+            font-size: 40px;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+
+        .tutorial-item h3 {
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+
+        .tutorial-item p {
+            margin-bottom: 10px;
+            color: var(--dark);
+            text-align: right;
+        }
+
+        .tutorial-indicators {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        .tutorial-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--gray);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .tutorial-indicator.active {
+            background: var(--primary);
+            transform: scale(1.2);
+        }
+
+        /* تحسينات عامة */
+        .hidden {
+            display: none !important;
+        }
+        
+        /* تحسينات للأجهزة الضعيفة */
+        .low-performance-mode {
+            --shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            --transition: none;
+        }
+        
+        .low-performance-mode * {
+            animation: none !important;
+            transition: none !important;
+        }
+        
+        .low-performance-mode .scan-box {
+            animation: none !important;
+        }
+        
+        .low-performance-mode .splash-logo {
+            animation: none !important;
+        }
+
+        /* تحسينات لوضع ملء الشاشة */
+        .fullscreen-mode {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--lighter);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .fullscreen-qr {
+            max-width: 90%;
+            max-height: 70vh;
+            margin: 20px 0;
+        }
+
+        .fullscreen-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* تحسينات لشعار QR */
+        .logo-upload-container {
+            margin-top: 15px;
+        }
+
+        .logo-preview {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            object-fit: cover;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        /* تصميم جديد لنوع المحتوى */
+        .qr-type-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .qr-type-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            border-radius: 10px;
+            background: var(--lighter);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .qr-type-option.selected {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .qr-type-option i {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .qr-type-option span {
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        /* تصميم لزر المصباح */
+        .torch-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 10;
+            border: none;
+            outline: none;
+        }
+        
+        .torch-btn.active {
+            background: var(--warning);
+            color: var(--dark);
+        }
+        
+        /* نافذة طلب الإذن */
+        .permission-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .permission-card {
+            background: var(--lighter);
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 90%;
+            width: 100%;
+            animation: fadeIn 0.5s;
+        }
+        
+        .permission-card h2 {
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+        
+        .permission-card p {
+            margin-bottom: 20px;
+            color: var(--dark);
+        }
+        
+        .permission-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .permission-buttons button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .permission-allow {
+            background: var(--success);
+            color: white;
+        }
+        
+        .permission-deny {
+            background: var(--danger);
+            color: white;
+        }
+        
+        /* تصميم العيون والأجسام لـ QR Code */
+        .qr-eye-options, .qr-body-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .qr-eye-option, .qr-body-option {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            background: var(--lighter);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            overflow: hidden;
+        }
+        
+        .qr-eye-option.selected, .qr-body-option.selected {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+        
+        .qr-eye-option svg, .qr-body-option svg {
+            width: 80%;
+            height: 80%;
+        }
+
+        /* تحسينات جديدة للمسح الضوئي */
+        .scan-buttons-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .scan-buttons-container .btn {
+            flex: 1;
+        }
+
+        .torch-btn-side {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            border: none;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .torch-btn-side.active {
+            background: var(--warning);
+            color: var(--dark);
+        }
+
+        .scanner-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            text-align: center;
+            z-index: 5;
+        }
+        
+        /* معلومات الجهاز */
+        .device-info {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            font-size: 14px;
+        }
+        
+        .device-info-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        .device-info-item {
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .device-info-label {
+            color: var(--gray);
+        }
+        
+        .device-info-value {
+            color: var(--dark);
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <!-- شاشة الترحيب -->
+    <div id="splash-screen">
+        <svg class="splash-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4z"/>
+            <path d="M19 19h2v2h-2zM13 13h2v2h-2zM15 15h2v2h-2zM13 17h2v2h-2zM17 17h2v2h-2zM15 19h2v2h-2zM17 13h2v2h-2zM19 15h2v2h-2z"/>
+        </svg>
+        <h1 class="splash-title">QR Master</h1>
+        <p class="splash-subtitle">الحل الأمثل لإنشاء ومسح رموز QR</p>
+        <div class="progress-bar">
+            <div class="progress" id="splash-progress"></div>
+        </div>
+    </div>
+
+    <!-- التطبيق الرئيسي -->
+    <div id="app">
+        <!-- المحتوى الرئيسي -->
+        <div class="main-content" id="main-content">
+            <!-- محتوى كل تبويب سيتم حقنه هنا -->
+        </div>
+
+        <!-- شريط التبويبات السفلي -->
+        <div class="bottom-nav">
+            <div class="nav-item active" data-tab="generate">
+                <i class="fas fa-qrcode"></i>
+                <span>إنشاء</span>
+            </div>
+            <div class="nav-item" data-tab="scan">
+                <i class="fas fa-camera"></i>
+                <span>مسح</span>
+            </div>
+            <div class="nav-item" data-tab="history">
+                <i class="fas fa-history"></i>
+                <span>السجل</span>
+            </div>
+            <div class="nav-item" data-tab="settings">
+                <i class="fas fa-cog"></i>
+                <span>الإعدادات</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- قوالب HTML -->
+    <template id="generate-template">
+        <div class="header">
+            <h1>إنشاء QR Code</h1>
+            <p>قم بإنشاء رمز QR مخصص في ثوانٍ</p>
+        </div>
+
+        <div class="card">
+            <div class="input-group">
+                <label for="qr-content">المحتوى</label>
+                <textarea id="qr-content" placeholder="أدخل النص، الرابط، البريد الإلكتروني أو أي محتوى آخر"></textarea>
+            </div>
+
+            <div class="input-group">
+                <label>نوع المحتوى</label>
+                <div class="qr-type-options" id="qr-type-options">
+                    <div class="qr-type-option selected" data-type="auto">
+                        <i class="fas fa-magic"></i>
+                        <span>تلقائي</span>
+                    </div>
+                    <div class="qr-type-option" data-type="text">
+                        <i class="fas fa-font"></i>
+                        <span>نص</span>
+                    </div>
+                    <div class="qr-type-option" data-type="url">
+                        <i class="fas fa-link"></i>
+                        <span>رابط</span>
+                    </div>
+                    <div class="qr-type-option" data-type="email">
+                        <i class="fas fa-envelope"></i>
+                        <span>بريد</span>
+                    </div>
+                    <div class="qr-type-option" data-type="phone">
+                        <i class="fas fa-phone"></i>
+                        <span>هاتف</span>
+                    </div>
+                    <div class="qr-type-option" data-type="sms">
+                        <i class="fas fa-sms"></i>
+                        <span>رسالة</span>
+                    </div>
+                    <div class="qr-type-option" data-type="wifi">
+                        <i class="fas fa-wifi"></i>
+                        <span>واي فاي</span>
+                    </div>
+                    <div class="qr-type-option" data-type="contact">
+                        <i class="fas fa-address-card"></i>
+                        <span>اتصال</span>
+                    </div>
+                    <div class="qr-type-option" data-type="event">
+                        <i class="fas fa-calendar"></i>
+                        <span>حدث</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="extra-fields"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-palette"></i>
+                التخصيص
+            </div>
+
+            <div class="input-group">
+                <label>لون QR Code</label>
+                <div class="color-options">
+                    <div class="color-option selected" style="background-color: #000000;" data-color="#000000">
+                        <i class="fas fa-check check-icon"></i>
+                    </div>
+                    <div class="color-option" style="background-color: #4a6bff;" data-color="#4a6bff">
+                        <i class="fas fa-check check-icon"></i>
+                    </div>
+                    <div class="color-option" style="background-color: #10b981;" data-color="#10b981">
+                        <i class="fas fa-check check-icon"></i>
+                    </div>
+                    <div class="color-option" style="background-color: #f59e0b;" data-color="#f59e0b">
+                        <i class="fas fa-check check-icon"></i>
+                    </div>
+                    <div class="color-option" style="background-color: #ef4444;" data-color="#ef4444">
+                        <i class="fas fa-check check-icon"></i>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn" id="generate-btn">
+                <i class="fas fa-magic"></i> إنشاء QR Code
+            </button>
+        </div>
+
+        <div class="card qr-result" id="qr-result">
+            <div class="card-title">
+                <i class="fas fa-qrcode"></i>
+                النتيجة
+            </div>
+            
+            <div id="generated-qr"></div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-success" id="download-btn">
+                    <i class="fas fa-download"></i> تحميل
+                </button>
+                <button class="btn btn-secondary" id="share-btn">
+                    <i class="fas fa-share-alt"></i> مشاركة
+                </button>
+                <button class="btn btn-warning" id="save-btn">
+                    <i class="fas fa-save"></i> حفظ
+                </button>
+                <button class="btn btn-secondary" id="fullscreen-btn">
+                    <i class="fas fa-expand"></i> عرض كامل
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <template id="scan-template">
+        <div class="header">
+            <h1>مسح QR Code</h1>
+            <p>قم بتوجيه الكاميرا نحو رمز QR للمسح الضوئي</p>
+        </div>
+
+        <div class="card">
+            <div class="scanner-container">
+                <video id="scanner-video" playsinline></video>
+                <canvas id="scan-canvas"></canvas>
+                <div class="scan-overlay">
+                    <div class="scan-box"></div>
+                    <div class="scan-guide">ضع رمز QR داخل الإطار</div>
+                </div>
+                <div class="scanner-loading" id="scanner-loading" style="display: none;">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>جاري تحميل الكاميرا...</p>
+                </div>
+            </div>
+
+            <div class="scan-buttons-container">
+                <button class="torch-btn-side" id="torch-btn-side">
+                    <i class="fas fa-lightbulb"></i>
+                </button>
+                <button class="btn" id="scan-btn">
+                    <i class="fas fa-camera"></i> بدء المسح
+                </button>
+                <button class="btn btn-danger" id="stop-scan-btn" style="display: none;">
+                    <i class="fas fa-stop"></i> إيقاف
+                </button>
+            </div>
+
+            <div class="input-group" style="margin-top: 20px;">
+                <label>أو اختر صورة من المعرض</label>
+                <input type="file" id="upload-image" accept="image/*" style="display: none;">
+                <button class="btn btn-secondary" id="upload-btn">
+                    <i class="fas fa-image"></i> اختر صورة
+                </button>
+            </div>
+        </div>
+
+        <div class="card scan-result" id="scan-result">
+            <div class="card-title">
+                <i class="fas fa-search"></i>
+                نتيجة المسح
+            </div>
+            
+            <span class="result-type" id="result-type">نص</span>
+            <p id="scan-result-text">لم يتم العثور على أي نتيجة بعد</p>
+            
+            <div class="result-actions">
+                <button class="btn btn-secondary" id="copy-result-btn" disabled>
+                    <i class="fas fa-copy"></i> نسخ
+                </button>
+                <button class="btn btn-secondary" id="open-result-btn">
+                    <i class="fas fa-external-link-alt"></i> فتح
+                </button>
+                <button class="btn btn-success" id="save-result-btn">
+                    <i class="fas fa-save"></i> حفظ
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <template id="history-template">
+        <div class="header">
+            <h1>سجل QR Code</h1>
+            <p>عرض جميع رموز QR التي قمت بإنشائها أو مسحها</p>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <h3 class="card-title" style="margin-bottom: 0;">
+                    <i class="fas fa-history"></i>
+                    العناصر المحفوظة
+                </h3>
+                <button class="btn btn-secondary" id="clear-history-btn" style="width: auto; padding: 8px 12px;">
+                    <i class="fas fa-trash"></i> مسح الكل
+                </button>
+            </div>
+
+            <div id="history-list">
+                <!-- سيتم ملء هذا القسم بالعناصر من localStorage -->
+                <div class="empty-state">
+                    <i class="fas fa-history"></i>
+                    <p>لا توجد عناصر في السجل بعد</p>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="settings-template">
+        <div class="header">
+            <h1>إعدادات التطبيق</h1>
+            <p>تخصيص تجربة استخدام التطبيق</p>
+        </div>
+
+        <div class="card">
+            <div class="settings-item">
+                <div class="settings-label">
+                    <i class="fas fa-moon"></i>
+                    الوضع الليلي
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="dark-mode">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="settings-item">
+                <div class="settings-label">
+                    <i class="fas fa-vibrate"></i>
+                    الاهتزاز
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="vibration" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="settings-item">
+                <div class="settings-label">
+                    <i class="fas fa-bell"></i>
+                    الإشعارات
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="notifications" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="settings-item">
+                <div class="settings-label">
+                    <i class="fas fa-qrcode"></i>
+                    حفظ تلقائي للسجل
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="auto-save" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div class="settings-item">
+                <div class="settings-label">
+                    <i class="fas fa-tachometer-alt"></i>
+                    وضع الأداء المنخفض
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="low-performance">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div class="settings-item">
+                <div class="settings-label">
+                    <i class="fas fa-wifi"></i>
+                    وضع عدم الاتصال
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="offline-mode" checked disabled>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="settings-item" style="flex-direction: column; align-items: flex-start;">
+                <div class="settings-label">
+                    <i class="fas fa-info-circle"></i>
+                    حول التطبيق
+                </div>
+                <p style="margin-top: 10px; font-size: 14px; color: var(--gray);">
+                    QR Master - الإصدار 20.0.5-(18)<br>
+                    تم التطوير من طرف ®T'eam™- AppX<br>
+                    &copy; 2025 جميع الحقوق محفوظة
+                </p>
+            </div>
+
+            <div class="settings-item" style="justify-content: center;">
+                <button class="btn btn-secondary" id="rate-app-btn">
+                    <i class="fas fa-star"></i> قيم التطبيق
+                </button>
+                <button class="btn btn-secondary" id="feedback-btn" style="margin-right: 10px;">
+                    <i class="fas fa-comment"></i> إرسال ملاحظات
+                </button>
+            </div>
+            
+            <div class="device-info">
+                <div class="device-info-title">
+                    <i class="fas fa-mobile-alt"></i> معلومات الجهاز
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">نوع الجهاز:</span>
+                    <span class="device-info-value" id="device-type">جارِ التحميل...</span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">نظام التشغيل:</span>
+                    <span class="device-info-value" id="device-os">جارِ التحميل...</span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">المتصفح:</span>
+                    <span class="device-info-value" id="device-browser">جارِ التحميل...</span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">ذاكرة الجهاز:</span>
+                    <span class="device-info-value" id="device-memory">جارِ التحميل...</span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">أنوية المعالج:</span>
+                    <span class="device-info-value" id="device-cores">جارِ التحميل...</span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">أداء الجهاز:</span>
+                    <span class="device-info-value" id="device-performance">جارِ التحميل...</span>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="history-item-template">
+        <div class="history-item">
+            <div class="history-icon">
+                <i class="fas fa-qrcode"></i>
+            </div>
+            <div class="history-content">
+                <div class="history-title" data-title>عنوان العنصر</div>
+                <div class="history-date" data-date>01/01/2023</div>
+            </div>
+            <div class="history-actions">
+                <button class="view-btn" data-id>
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="delete-btn" data-id>
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <!-- نافذة طلب الإذن -->
+    <template id="permission-template">
+        <div class="permission-overlay">
+            <div class="permission-card">
+                <h2 id="permission-title">السماح بالوصول إلى الكاميرا</h2>
+                <p id="permission-message">السماح لهذا التطبيق بالتقاط الصور وحفظ أي مقاطع فيديو؟</p>
+                <div class="permission-buttons">
+                    <button class="permission-deny" id="permission-deny">رفض</button>
+                    <button class="permission-allow" id="permission-allow">سماح</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- وضع ملء الشاشة -->
+    <template id="fullscreen-template">
+        <div class="fullscreen-mode">
+            <h2>QR Code</h2>
+            <img id="fullscreen-qr" class="fullscreen-qr">
+            <div class="fullscreen-actions">
+                <button class="btn btn-secondary" id="fullscreen-close">
+                    <i class="fas fa-times"></i> إغلاق
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        // تسجيل Service Worker للعمل دون اتصال
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful');
+                }).catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+
+        // شاشة الترحيب مع شريط التقدم
+        const splashScreen = document.getElementById('splash-screen');
+        const progressBar = document.getElementById('splash-progress');
+        let progress = 0;
+        const splashDuration = 2000; // 2 ثواني
+        let appLoaded = false;
+        
+        // تحميل التطبيق
+        function loadAppResources() {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    appLoaded = true;
+                    resolve();
+                }, 1500);
+            });
+        }
+        
+        // دالة التحقق من أداء الجهاز
+        function checkDevicePerformance() {
+            // التحقق من ذاكرة الجهاز
+            const isLowMemory = navigator.deviceMemory && navigator.deviceMemory < 2;
+            
+            // التحقق من عدد أنوية المعالج
+            const isLowCPU = navigator.hardwareConcurrency && navigator.hardwareConcurrency < 2;
+            
+            // التحقق من دعم WebGL
+            let isWeakGPU = true;
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (debugInfo) {
+                        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                        isWeakGPU = renderer.includes('Software') || 
+                                    renderer.includes('SwiftShader') || 
+                                    renderer.includes('Intel HD Graphics') ||
+                                    renderer.includes('Mali') ||
+                                    renderer.includes('Adreno');
+                    }
+                }
+            } catch (e) {
+                console.error('WebGL check failed:', e);
+            }
+            
+            // إذا كان الجهاز ضعيفاً، نفعّل وضع الأداء المنخفض
+            return isLowMemory || isLowCPU || isWeakGPU;
+        }
+        
+        // تحديث شريط التقدم بناءً على حالة التحميل
+        function updateProgress() {
+            const progressInterval = setInterval(() => {
+                const timeProgress = Math.min(progress + 1, 90);
+                const loadProgress = appLoaded ? 100 : timeProgress;
+                
+                progressBar.style.width = `${loadProgress}%`;
+                progress++;
+                
+                if (loadProgress >= 100) {
+                    clearInterval(progressInterval);
+                    splashScreen.classList.add('fade-out');
+                    setTimeout(() => {
+                        splashScreen.style.display = 'none';
+                        document.getElementById('app').style.display = 'block';
+                        initApp();
+                    }, 500);
+                }
+            }, splashDuration / 100);
+        }
+        
+        // بدء عملية التحميل
+        loadAppResources().then(() => {
+            updateProgress();
+        });
+
+        // التطبيق الرئيسي
+        function initApp() {
+            // التحقق من أداء الجهاز
+            const isLowPerformanceDevice = checkDevicePerformance();
+            
+            // عناصر DOM
+            const mainContent = document.getElementById('main-content');
+            const navItems = document.querySelectorAll('.nav-item');
+            
+            // حالة التطبيق
+            const state = {
+                currentTab: 'generate',
+                qrColor: '#000000',
+                qrSize: '200', // حجم ثابت الآن
+                history: JSON.parse(localStorage.getItem('qrHistory')) || [],
+                darkMode: localStorage.getItem('darkMode') === 'true',
+                vibration: localStorage.getItem('vibration') !== 'false',
+                notifications: localStorage.getItem('notifications') !== 'false',
+                autoSave: localStorage.getItem('autoSave') !== 'false',
+                lowPerformance: isLowPerformanceDevice || localStorage.getItem('lowPerformance') === 'true',
+                scannerActive: false,
+                maxHistoryItems: 100,
+                feedbacks: JSON.parse(localStorage.getItem('qrFeedbacks')) || [],
+                torchActive: false,
+                cameraPermissionRequested: false
+            };
+            
+            // تطبيق وضع الأداء المنخفض إذا لزم الأمر
+            if (state.lowPerformance) {
+                document.body.classList.add('low-performance-mode');
+            }
+            
+            // تهيئة الوضع الليلي
+            function applyDarkMode() {
+                if (state.darkMode) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+            }
+            
+            applyDarkMode();
+            
+            // تحميل تبويب افتراضي
+            loadTab(state.currentTab);
+            
+            // أحداث التبويبات
+            navItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    item.classList.add('active');
+                    state.currentTab = item.dataset.tab;
+                    loadTab(state.currentTab);
+                    
+                    // إيقاف المسح إذا كان يعمل
+                    if (state.currentTab !== 'scan' && state.scannerActive) {
+                        stopScanning();
+                    }
+                    
+                    // تفعيل الاهتزاز عند تغيير التبويبات
+                    vibrate();
+                });
+            });
+            
+            // تحميل تبويب
+            function loadTab(tabName) {
+                const template = document.getElementById(`${tabName}-template`);
+                if (template) {
+                    mainContent.innerHTML = '';
+                    mainContent.appendChild(template.content.cloneNode(true));
+                    
+                    // تهيئة التبويب بعد تحميله
+                    switch(tabName) {
+                        case 'generate':
+                            initGenerateTab();
+                            break;
+                        case 'scan':
+                            initScanTab();
+                            break;
+                        case 'history':
+                            initHistoryTab();
+                            break;
+                        case 'settings':
+                            initSettingsTab();
+                            break;
+                    }
+                }
+            }
+            
+            // تبويب الإنشاء
+            function initGenerateTab() {
+                const qrContent = document.getElementById('qr-content');
+                const qrTypeOptions = document.querySelectorAll('.qr-type-option');
+                const extraFields = document.getElementById('extra-fields');
+                const colorOptions = document.querySelectorAll('.color-option');
+                const generateBtn = document.getElementById('generate-btn');
+                const qrResult = document.getElementById('qr-result');
+                const generatedQr = document.getElementById('generated-qr');
+                const downloadBtn = document.getElementById('download-btn');
+                const shareBtn = document.getElementById('share-btn');
+                const saveBtn = document.getElementById('save-btn');
+                const fullscreenBtn = document.getElementById('fullscreen-btn');
+                
+                // اختيار نوع المحتوى
+                qrTypeOptions.forEach(option => {
+                    option.addEventListener('click', () => {
+                        document.querySelectorAll('.qr-type-option').forEach(opt => {
+                            opt.classList.remove('selected');
+                        });
+                        option.classList.add('selected');
+                        updateExtraFields(option.dataset.type);
+                        vibrate();
+                    });
+                });
+                
+                // اختيار اللون
+                colorOptions.forEach(option => {
+                    option.addEventListener('click', () => {
+                        document.querySelectorAll('.color-option').forEach(opt => {
+                            opt.classList.remove('selected');
+                        });
+                        option.classList.add('selected');
+                        state.qrColor = option.dataset.color;
+                        vibrate();
+                    });
+                });
+                
+                // التعرف التلقائي على نوع المحتوى عند الكتابة
+                qrContent.addEventListener('input', () => {
+                    const selectedType = document.querySelector('.qr-type-option.selected').dataset.type;
+                    if (selectedType === 'auto') {
+                        detectContentType(qrContent.value);
+                    }
+                });
+                
+                // دالة التعرف التلقائي على نوع المحتوى
+                function detectContentType(content) {
+                    content = content.trim();
+                    
+                    if (!content) return;
+                    
+                    // التحقق من البريد الإلكتروني
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (emailRegex.test(content)) {
+                        selectTypeOption('email');
+                        updateExtraFields('email');
+                        document.getElementById('email-address').value = content;
+                        return;
+                    }
+                    
+                    // التحقق من رقم الهاتف
+                    const phoneRegex = /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/;
+                    if (phoneRegex.test(content)) {
+                        selectTypeOption('phone');
+                        updateExtraFields('phone');
+                        document.getElementById('phone-number').value = content;
+                        return;
+                    }
+                    
+                    // التحقق من الرابط
+                    const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+                    if (urlRegex.test(content)) {
+                        selectTypeOption('url');
+                        return;
+                    }
+                    
+                    // التحقق من رسالة SMS
+                    if (content.toLowerCase().startsWith('sms:')) {
+                        selectTypeOption('sms');
+                        updateExtraFields('sms');
+                        const parts = content.split(':')[1].split('?');
+                        document.getElementById('sms-number').value = parts[0] || '';
+                        if (parts[1] && parts[1].startsWith('body=')) {
+                            document.getElementById('sms-message').value = decodeURIComponent(parts[1].substring(5));
+                        }
+                        return;
+                    }
+                    
+                    // التحقق من شبكة WiFi
+                    if (content.toUpperCase().startsWith('WIFI:')) {
+                        selectTypeOption('wifi');
+                        updateExtraFields('wifi');
+                        const wifiParts = content.split(':')[1].split(';');
+                        wifiParts.forEach(part => {
+                            if (part.startsWith('S:')) {
+                                document.getElementById('wifi-ssid').value = part.substring(2);
+                            } else if (part.startsWith('P:')) {
+                                document.getElementById('wifi-password').value = part.substring(2);
+                            } else if (part.startsWith('T:')) {
+                                document.getElementById('wifi-type').value = part.substring(2);
+                            }
+                        });
+                        return;
+                    }
+                    
+                    // التحقق من عنوان Bitcoin
+                    const bitcoinRegex = /^(bitcoin:)?[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/;
+                    if (bitcoinRegex.test(content)) {
+                        selectTypeOption('bitcoin');
+                        updateExtraFields('bitcoin');
+                        document.getElementById('bitcoin-address').value = content.replace('bitcoin:', '');
+                        return;
+                    }
+                    
+                    // افتراضياً نص عادي
+                    selectTypeOption('text');
+                    updateExtraFields('text');
+                }
+                
+                function selectTypeOption(type) {
+                    document.querySelectorAll('.qr-type-option').forEach(opt => {
+                        opt.classList.remove('selected');
+                        if (opt.dataset.type === type) {
+                            opt.classList.add('selected');
+                        }
+                    });
+                }
+                
+                // تحديث الحقول الإضافية بناءً على النوع
+                function updateExtraFields(type) {
+                    let fieldsHTML = '';
+                    
+                    switch(type) {
+                        case 'email':
+                            fieldsHTML = `
+                                <div class="input-group">
+                                    <label for="email-address">عنوان البريد الإلكتروني</label>
+                                    <input type="email" id="email-address" placeholder="example@example.com">
+                                </div>
+                                <div class="input-group">
+                                    <label for="email-subject">الموضوع (اختياري)</label>
+                                    <input type="text" id="email-subject" placeholder="موضوع الرسالة">
+                                </div>
+                                <div class="input-group">
+                                    <label for="email-body">نص الرسالة (اختياري)</label>
+                                    <textarea id="email-body" placeholder="نص الرسالة"></textarea>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'phone':
+                            fieldsHTML = `
+                                <div class="input-group">
+                                    <label for="phone-number">رقم الهاتف</label>
+                                    <input type="tel" id="phone-number" placeholder="+1234567890">
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'sms':
+                            fieldsHTML = `
+                                <div class="input-group">
+                                    <label for="sms-number">رقم الهاتف</label>
+                                    <input type="tel" id="sms-number" placeholder="+1234567890">
+                                </div>
+                                <div class="input-group">
+                                    <label for="sms-message">نص الرسالة (اختياري)</label>
+                                    <textarea id="sms-message" placeholder="نص الرسالة"></textarea>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'wifi':
+                            fieldsHTML = `
+                                <div class="input-group">
+                                    <label for="wifi-ssid">اسم الشبكة (SSID)</label>
+                                    <input type="text" id="wifi-ssid" placeholder="اسم شبكة الواي فاي">
+                                </div>
+                                <div class="input-group">
+                                    <label for="wifi-password">كلمة المرور</label>
+                                    <input type="text" id="wifi-password" placeholder="كلمة مرور الواي فاي">
+                                </div>
+                                <div class="input-group">
+                                    <label for="wifi-type">نوع الشبكة</label>
+                                    <select id="wifi-type">
+                                        <option value="WPA">WPA/WPA2</option>
+                                        <option value="WEP">WEP</option>
+                                        <option value="">مفتوح (بدون كلمة مرور)</option>
+                                    </select>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'contact':
+                            fieldsHTML = `
+                                <div class="input-group">
+                                    <label for="contact-name">الاسم</label>
+                                    <input type="text" id="contact-name" placeholder="الاسم الكامل">
+                                </div>
+                                <div class="input-group">
+                                    <label for="contact-phone">رقم الهاتف</label>
+                                    <input type="tel" id="contact-phone" placeholder="+1234567890">
+                                </div>
+                                <div class="input-group">
+                                    <label for="contact-email">البريد الإلكتروني</label>
+                                    <input type="email" id="contact-email" placeholder="example@example.com">
+                                </div>
+                                <div class="input-group">
+                                    <label for="contact-address">العنوان (اختياري)</label>
+                                    <input type="text" id="contact-address" placeholder="العنوان">
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'event':
+                            fieldsHTML = `
+                                <div class="input-group">
+                                    <label for="event-title">عنوان الحدث</label>
+                                    <input type="text" id="event-title" placeholder="عنوان الحدث">
+                                </div>
+                                <div class="input-group">
+                                    <label for="event-start">تاريخ البدء</label>
+                                    <input type="datetime-local" id="event-start">
+                                </div>
+                                <div class="input-group">
+                                    <label for="event-end">تاريخ الانتهاء (اختياري)</label>
+                                    <input type="datetime-local" id="event-end">
+                                </div>
+                                <div class="input-group">
+                                    <label for="event-location">الموقع (اختياري)</label>
+                                    <input type="text" id="event-location" placeholder="موقع الحدث">
+                                </div>
+                                <div class="input-group">
+                                    <label for="event-description">الوصف (اختياري)</label>
+                                    <textarea id="event-description" placeholder="وصف الحدث"></textarea>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'payment':
+                            fieldsHTML = `
+                                <div class="input-group">
+                                    <label for="payment-name">اسم المستلم</label>
+                                    <input type="text" id="payment-name" placeholder="اسم المستلم">
+                                </div>
+                                <div class="input-group">
+                                    <label for="payment-iban">رقم الحساب (IBAN)</label>
+                                    <input type="text" id="payment-iban" placeholder="SAXX XXXX XXXX XXXX XXXX XXXX">
+                                </div>
+                                <div class="input-group">
+                                    <label for="payment-amount">المبلغ (اختياري)</label>
+                                    <input type="number" id="payment-amount" placeholder="0.00">
+                                </div>
+                                <div class="input-group">
+                                    <label for="payment-reference">المرجع (اختياري)</label>
+                                    <input type="text" id="payment-reference" placeholder="المرجع">
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'bitcoin':
+                            fieldsHTML = `
+                                <div class="input-group">
+                                    <label for="bitcoin-address">عنوان Bitcoin</label>
+                                    <input type="text" id="bitcoin-address" placeholder="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa">
+                                </div>
+                                <div class="input-group">
+                                    <label for="bitcoin-amount">المبلغ (اختياري)</label>
+                                    <input type="number" id="bitcoin-amount" placeholder="0.00">
+                                </div>
+                                <div class="input-group">
+                                    <label for="bitcoin-message">الرسالة (اختياري)</label>
+                                    <input type="text" id="bitcoin-message" placeholder="الرسالة">
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'map':
+                            fieldsHTML = `
+                                <div class="input-group">
+                                    <label for="map-query">الموقع أو العنوان</label>
+                                    <input type="text" id="map-query" placeholder="الموقع أو العنوان">
+                                </div>
+                                <div class="input-group">
+                                    <label for="map-latitude">خط العرض (اختياري)</label>
+                                    <input type="number" id="map-latitude" placeholder="24.7136" step="0.0001">
+                                </div>
+                                <div class="input-group">
+                                    <label for="map-longitude">خط الطول (اختياري)</label>
+                                    <input type="number" id="map-longitude" placeholder="46.6753" step="0.0001">
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'app':
+                            fieldsHTML = `
+                                <div class="input-group">
+                                    <label for="app-url">رابط التطبيق</label>
+                                    <input type="url" id="app-url" placeholder="https://example.com/app">
+                                </div>
+                                <div class="input-group">
+                                    <label for="app-package">معرف الحزمة (Android)</label>
+                                    <input type="text" id="app-package" placeholder="com.example.app">
+                                </div>
+                                <div class="input-group">
+                                    <label for="app-store">معرف المتجر (iOS)</label>
+                                    <input type="text" id="app-store" placeholder="id123456789">
+                                </div>
+                            `;
+                            break;
+                            
+                        default:
+                            fieldsHTML = '';
+                    }
+                    
+                    extraFields.innerHTML = fieldsHTML;
+                }
+                
+                // إنشاء QR Code
+                generateBtn.addEventListener('click', generateQR);
+                
+                function generateQR() {
+                    const type = document.querySelector('.qr-type-option.selected').dataset.type;
+                    const typeToUse = type === 'auto' ? detectContentTypeSilent(qrContent.value) : type;
+                    let content = '';
+                    let title = '';
+                    
+                    // التحقق من صحة المدخلات
+                    if (!validateInputs(typeToUse)) {
+                        return;
+                    }
+                    
+                    switch(typeToUse) {
+                        case 'text':
+                            content = qrContent.value.trim();
+                            title = `نص: ${content.substring(0, 20)}${content.length > 20 ? '...' : ''}`;
+                            break;
+                            
+                        case 'url':
+                            let url = qrContent.value.trim();
+                            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                                url = 'https://' + url;
+                            }
+                            content = url;
+                            title = `رابط: ${url.substring(0, 20)}${url.length > 20 ? '...' : ''}`;
+                            break;
+                            
+                        case 'email':
+                            const email = document.getElementById('email-address').value.trim();
+                            const subject = document.getElementById('email-subject').value.trim();
+                            const body = document.getElementById('email-body').value.trim();
+                            
+                            content = `mailto:${email}`;
+                            if (subject) content += `?subject=${encodeURIComponent(subject)}`;
+                            if (body) content += `${subject ? '&' : '?'}body=${encodeURIComponent(body)}`;
+                            title = `بريد: ${email}`;
+                            break;
+                            
+                        case 'phone':
+                            const phone = document.getElementById('phone-number').value.trim();
+                            content = `tel:${phone}`;
+                            title = `هاتف: ${phone}`;
+                            break;
+                            
+                        case 'sms':
+                            const smsNumber = document.getElementById('sms-number').value.trim();
+                            const smsMessage = document.getElementById('sms-message').value.trim();
+                            
+                            content = `sms:${smsNumber}`;
+                            if (smsMessage) content += `?body=${encodeURIComponent(smsMessage)}`;
+                            title = `رسالة: ${smsNumber}`;
+                            break;
+                            
+                        case 'wifi':
+                            const ssid = document.getElementById('wifi-ssid').value.trim();
+                            const password = document.getElementById('wifi-password').value.trim();
+                            const wifiType = document.getElementById('wifi-type').value;
+                            
+                            content = `WIFI:T:${wifiType || 'nopass'};S:${ssid};P:${password};;`;
+                            title = `واي فاي: ${ssid}`;
+                            break;
+                            
+                        case 'contact':
+                            const name = document.getElementById('contact-name').value.trim();
+                            const contactPhone = document.getElementById('contact-phone').value.trim();
+                            const contactEmail = document.getElementById('contact-email').value.trim();
+                            const address = document.getElementById('contact-address').value.trim();
+                            
+                            content = `BEGIN:VCARD\nVERSION:3.0\nFN:${name}`;
+                            if (contactPhone) content += `\nTEL:${contactPhone}`;
+                            if (contactEmail) content += `\nEMAIL:${contactEmail}`;
+                            if (address) content += `\nADR:${address}`;
+                            content += `\nEND:VCARD`;
+                            title = `اتصال: ${name}`;
+                            break;
+                            
+                        case 'event':
+                            const eventTitle = document.getElementById('event-title').value.trim();
+                            const eventStart = document.getElementById('event-start').value;
+                            const eventEnd = document.getElementById('event-end').value;
+                            const location = document.getElementById('event-location').value.trim();
+                            const description = document.getElementById('event-description').value.trim();
+                            
+                            const startDate = new Date(eventStart);
+                            const endDate = eventEnd ? new Date(eventEnd) : null;
+                            
+                            content = `BEGIN:VEVENT\nSUMMARY:${eventTitle}\nDTSTART:${formatDateForICS(startDate)}`;
+                            if (endDate) content += `\nDTEND:${formatDateForICS(endDate)}`;
+                            if (location) content += `\nLOCATION:${location}`;
+                            if (description) content += `\nDESCRIPTION:${description}`;
+                            content += `\nEND:VEVENT`;
+                            title = `حدث: ${eventTitle}`;
+                            break;
+                            
+                        case 'payment':
+                            const paymentName = document.getElementById('payment-name').value.trim();
+                            const paymentIban = document.getElementById('payment-iban').value.trim();
+                            const paymentAmount = document.getElementById('payment-amount').value.trim();
+                            const paymentReference = document.getElementById('payment-reference').value.trim();
+                            
+                            content = `bank://iban=${paymentIban}`;
+                            if (paymentName) content += `&name=${encodeURIComponent(paymentName)}`;
+                            if (paymentAmount) content += `&amount=${paymentAmount}`;
+                            if (paymentReference) content += `&reference=${encodeURIComponent(paymentReference)}`;
+                            title = `دفع: ${paymentName || paymentIban.substring(0, 8)}...`;
+                            break;
+                            
+                        case 'bitcoin':
+                            const bitcoinAddress = document.getElementById('bitcoin-address').value.trim();
+                            const bitcoinAmount = document.getElementById('bitcoin-amount').value.trim();
+                            const bitcoinMessage = document.getElementById('bitcoin-message').value.trim();
+                            
+                            content = `bitcoin:${bitcoinAddress}`;
+                            if (bitcoinAmount) content += `?amount=${bitcoinAmount}`;
+                            if (bitcoinMessage) content += `${bitcoinAmount ? '&' : '?'}message=${encodeURIComponent(bitcoinMessage)}`;
+                            title = `Bitcoin: ${bitcoinAddress.substring(0, 8)}...`;
+                            break;
+                            
+                        case 'map':
+                            const mapQuery = document.getElementById('map-query').value.trim();
+                            const mapLatitude = document.getElementById('map-latitude').value.trim();
+                            const mapLongitude = document.getElementById('map-longitude').value.trim();
+                            
+                            if (mapLatitude && mapLongitude) {
+                                content = `geo:${mapLatitude},${mapLongitude}?q=${encodeURIComponent(mapQuery)}`;
+                            } else {
+                                content = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
+                            }
+                            title = `خريطة: ${mapQuery.substring(0, 20)}${mapQuery.length > 20 ? '...' : ''}`;
+                            break;
+                            
+                        case 'app':
+                            const appUrl = document.getElementById('app-url').value.trim();
+                            const appPackage = document.getElementById('app-package').value.trim();
+                            const appStore = document.getElementById('app-store').value.trim();
+                            
+                            if (appPackage) {
+                                content = `intent://${appUrl.replace(/^https?:\/\//, '')}#Intent;package=${appPackage};scheme=https;end`;
+                            } else if (appStore) {
+                                content = `https://apps.apple.com/app/id${appStore}`;
+                            } else {
+                                content = appUrl;
+                            }
+                            title = `تطبيق: ${appUrl.substring(0, 20)}${appUrl.length > 20 ? '...' : ''}`;
+                            break;
+                            
+                        default:
+                            content = qrContent.value.trim();
+                            title = `QR: ${content.substring(0, 20)}${content.length > 20 ? '...' : ''}`;
+                    }
+                    
+                    if (!content) {
+                        showAlert('الرجاء إدخال محتوى لإنشاء QR Code');
+                        return;
+                    }
+                    
+                    generatedQr.innerHTML = '';
+                    
+                    // إضافة تأثير التحميل إلى الزر
+                    generateBtn.classList.add('btn-loading');
+                    generateBtn.disabled = true;
+                    
+                    // إنشاء QR Code مع معالجة الأخطاء
+                    try {
+                        const qrOptions = {
+                            width: 200, // حجم ثابت الآن
+                            height: 200, // حجم ثابت الآن
+                            margin: 2,
+                            colorDark: state.qrColor,
+                            colorLight: '#ffffff',
+                            correctLevel: QRCode.CorrectLevel.H
+                        };
+                        
+                        // إنشاء QR Code باستخدام المكتبة المحدثة
+                        new QRCode(generatedQr, {
+                            text: content,
+                            ...qrOptions
+                        });
+                        
+                        generateBtn.classList.remove('btn-loading');
+                        generateBtn.disabled = false;
+                        
+                        qrResult.style.display = 'block';
+                        vibrate();
+                        
+                        // حفظ في السجل إذا كان الحفظ التلقائي مفعلًا
+                        if (state.autoSave) {
+                            addToHistory({
+                                type: 'generated',
+                                content: content,
+                                title: title,
+                                date: new Date().toLocaleString(),
+                                color: state.qrColor,
+                                size: state.qrSize
+                            });
+                        }
+                    } catch (error) {
+                        generateBtn.classList.remove('btn-loading');
+                        generateBtn.disabled = false;
+                        console.error(error);
+                        showAlert('حدث خطأ غير متوقع أثناء إنشاء QR Code');
+                    }
+                }
+                
+                // دالة للتعرف التلقائي الصامت (بدون تغيير الواجهة)
+                function detectContentTypeSilent(content) {
+                    content = content.trim();
+                    
+                    if (!content) return 'text';
+                    
+                    // التحقق من البريد الإلكتروني
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (emailRegex.test(content)) {
+                        return 'email';
+                    }
+                    
+                    // التحقق من رقم الهاتف
+                    const phoneRegex = /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/;
+                    if (phoneRegex.test(content)) {
+                        return 'phone';
+                    }
+                    
+                    // التحقق من الرابط
+                    const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+                    if (urlRegex.test(content)) {
+                        return 'url';
+                    }
+                    
+                    // التحقق من رسالة SMS
+                    if (content.toLowerCase().startsWith('sms:')) {
+                        return 'sms';
+                    }
+                    
+                    // التحقق من شبكة WiFi
+                    if (content.toUpperCase().startsWith('WIFI:')) {
+                        return 'wifi';
+                    }
+                    
+                    // التحقق من عنوان Bitcoin
+                    const bitcoinRegex = /^(bitcoin:)?[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/;
+                    if (bitcoinRegex.test(content)) {
+                        return 'bitcoin';
+                    }
+                    
+                    return 'text';
+                }
+                
+                // دالة للتحقق من صحة المدخلات
+                function validateInputs(type) {
+                    switch(type) {
+                        case 'email':
+                            const email = document.getElementById('email-address')?.value.trim();
+                            if (!email) {
+                                showAlert('الرجاء إدخال عنوان البريد الإلكتروني');
+                                return false;
+                            }
+                            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                            if (!emailRegex.test(email)) {
+                                showAlert('الرجاء إدخال عنوان بريد إلكتروني صحيح');
+                                return false;
+                            }
+                            break;
+                            
+                        case 'phone':
+                        case 'sms':
+                            const phone = document.getElementById(type === 'phone' ? 'phone-number' : 'sms-number')?.value.trim();
+                            if (!phone) {
+                                showAlert(`الرجاء إدخال رقم الهاتف`);
+                                return false;
+                            }
+                            const phoneRegex = /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/;
+                            if (!phoneRegex.test(phone)) {
+                                showAlert('الرجاء إدخال رقم هاتف صحيح');
+                                return false;
+                            }
+                            break;
+                            
+                        case 'wifi':
+                            const ssid = document.getElementById('wifi-ssid')?.value.trim();
+                            if (!ssid) {
+                                showAlert('الرجاء إدخال اسم الشبكة');
+                                return false;
+                            }
+                            break;
+                            
+                        case 'contact':
+                            const name = document.getElementById('contact-name')?.value.trim();
+                            if (!name) {
+                                showAlert('الرجاء إدخال الاسم');
+                                return false;
+                            }
+                            break;
+                            
+                        case 'event':
+                            const eventTitle = document.getElementById('event-title')?.value.trim();
+                            const eventStart = document.getElementById('event-start')?.value;
+                            if (!eventTitle || !eventStart) {
+                                showAlert('الرجاء إدخال عنوان الحدث وتاريخ البدء');
+                                return false;
+                            }
+                            break;
+                            
+                        case 'url':
+                            const url = qrContent.value.trim();
+                            if (!url) {
+                                showAlert('الرجاء إدخال رابط الموقع');
+                                return false;
+                            }
+                            break;
+                            
+                        case 'payment':
+                            const paymentName = document.getElementById('payment-name')?.value.trim();
+                            const paymentIban = document.getElementById('payment-iban')?.value.trim();
+                            if (!paymentName || !paymentIban) {
+                                showAlert('الرجاء إدخال اسم المستلم ورقم الحساب');
+                                return false;
+                            }
+                            break;
+                            
+                        case 'bitcoin':
+                            const bitcoinAddress = document.getElementById('bitcoin-address')?.value.trim();
+                            if (!bitcoinAddress) {
+                                showAlert('الرجاء إدخال عنوان Bitcoin');
+                                return false;
+                            }
+                            const bitcoinAddrRegex = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/;
+                            if (!bitcoinAddrRegex.test(bitcoinAddress)) {
+                                showAlert('الرجاء إدخال عنوان Bitcoin صحيح');
+                                return false;
+                            }
+                            break;
+                            
+                        case 'map':
+                            const mapQuery = document.getElementById('map-query')?.value.trim();
+                            if (!mapQuery) {
+                                showAlert('الرجاء إدخال موقع أو عنوان');
+                                return false;
+                            }
+                            break;
+                            
+                        case 'app':
+                            const appUrl = document.getElementById('app-url')?.value.trim();
+                            if (!appUrl) {
+                                showAlert('الرجاء إدخال رابط التطبيق');
+                                return false;
+                            }
+                            break;
+                            
+                        default:
+                            if (!qrContent.value.trim()) {
+                                showAlert('الرجاء إدخال محتوى لإنشاء QR Code');
+                                return false;
+                            }
+                    }
+                    
+                    return true;
+                }
+                
+                // تحويل التاريخ لتنسيق ICS
+                function formatDateForICS(date) {
+                    return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+                }
+                
+                // تحميل QR Code
+                downloadBtn.addEventListener('click', () => {
+                    const canvas = generatedQr.querySelector('canvas');
+                    if (!canvas) {
+                        showAlert('لا يوجد QR Code لتحميله');
+                        return;
+                    }
+                    
+                    const link = document.createElement('a');
+                    link.download = `qrcode-${new Date().getTime()}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    vibrate();
+                });
+                
+                // مشاركة QR Code
+                shareBtn.addEventListener('click', async () => {
+                    const canvas = generatedQr.querySelector('canvas');
+                    if (!canvas) {
+                        showAlert('لا يوجد QR Code لمشاركته');
+                        return;
+                    }
+                    
+                    try {
+                        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                        const file = new File([blob], 'qrcode.png', { type: 'image/png' });
+                        
+                        if (navigator.share && navigator.canShare({ files: [file] })) {
+                            await navigator.share({
+                                title: 'QR Code الذي قمت بإنشائه',
+                                text: 'تحقق من هذا QR Code الذي أنشأته باستخدام تطبيق QR Master',
+                                files: [file]
+                            });
+                        } else {
+                            // Fallback for browsers that don't support file sharing
+                            const link = document.createElement('a');
+                            link.href = URL.createObjectURL(blob);
+                            link.download = 'qrcode.png';
+                            link.click();
+                            showAlert('تم تحميل QR Code بدلاً من المشاركة');
+                        }
+                        vibrate();
+                    } catch (err) {
+                        console.error('Error sharing:', err);
+                        showAlert('تعذر المشاركة. يرجى المحاولة لاحقًا.');
+                    }
+                });
+                
+                // حفظ QR Code في السجل
+                saveBtn.addEventListener('click', () => {
+                    const canvas = generatedQr.querySelector('canvas');
+                    if (!canvas) {
+                        showAlert('لا يوجد QR Code لحفظه');
+                        return;
+                    }
+                    
+                    const content = qrContent.value.trim();
+                    if (!content) {
+                        showAlert('لا يوجد محتوى لحفظه');
+                        return;
+                    }
+                    
+                    const title = `QR: ${content.substring(0, 20)}${content.length > 20 ? '...' : ''}`;
+                    
+                    addToHistory({
+                        type: 'generated',
+                        content: content,
+                        title: title,
+                        date: new Date().toLocaleString(),
+                        color: state.qrColor,
+                        size: state.qrSize
+                    });
+                    
+                    showAlert('تم حفظ QR Code في السجل');
+                    vibrate();
+                });
+                
+                // عرض QR Code في وضع ملء الشاشة
+                fullscreenBtn.addEventListener('click', () => {
+                    const canvas = generatedQr.querySelector('canvas');
+                    if (!canvas) {
+                        showAlert('لا يوجد QR Code لعرضه');
+                        return;
+                    }
+                    
+                    const template = document.getElementById('fullscreen-template');
+                    const clone = template.content.cloneNode(true);
+                    document.body.appendChild(clone);
+                    
+                    const fullscreenQr = document.getElementById('fullscreen-qr');
+                    fullscreenQr.src = canvas.toDataURL('image/png');
+                    
+                    document.getElementById('fullscreen-close').addEventListener('click', () => {
+                        document.querySelector('.fullscreen-mode').remove();
+                        vibrate();
+                    });
+                    
+                    vibrate();
+                });
+                
+                // تحميل الحقول الإضافية أول مرة
+                updateExtraFields(document.querySelector('.qr-type-option.selected').dataset.type);
+            }
+            
+            // تبويب المسح
+            function initScanTab() {
+                const scanBtn = document.getElementById('scan-btn');
+                const stopScanBtn = document.getElementById('stop-scan-btn');
+                const uploadBtn = document.getElementById('upload-btn');
+                const uploadInput = document.getElementById('upload-image');
+                const scanResult = document.getElementById('scan-result');
+                const resultText = document.getElementById('scan-result-text');
+                const resultType = document.getElementById('result-type');
+                const copyBtn = document.getElementById('copy-result-btn');
+                const openBtn = document.getElementById('open-result-btn');
+                const saveBtn = document.getElementById('save-result-btn');
+                const video = document.getElementById('scanner-video');
+                const canvas = document.getElementById('scan-canvas');
+                const ctx = canvas.getContext('2d');
+                const torchBtn = document.getElementById('torch-btn-side');
+                const scannerLoading = document.getElementById('scanner-loading');
+                
+                let scanning = false;
+                let stream = null;
+                let animationFrameId = null;
+                
+                // تعطيل زر النسخ
+                copyBtn.disabled = true;
+                
+                // بدء المسح
+                scanBtn.addEventListener('click', async () => {
+                    if (!state.cameraPermissionRequested) {
+                        showCameraPermissionRequest();
+                    } else {
+                        await startScanning();
+                    }
+                });
+                
+                // إيقاف المسح
+                stopScanBtn.addEventListener('click', () => {
+                    stopScanning();
+                    vibrate();
+                });
+                
+                // تحميل صورة للمسح
+                uploadBtn.addEventListener('click', () => {
+                    uploadInput.click();
+                    vibrate();
+                });
+                
+                uploadInput.addEventListener('change', handleImageUpload);
+                
+                // نسخ النتيجة - معطل
+                copyBtn.addEventListener('click', () => {
+                    showAlert('وظيفة النسخ غير متاحة في هذا التطبيق');
+                });
+                
+                // فتح النتيجة
+                openBtn.addEventListener('click', () => {
+                    const text = resultText.textContent;
+                    if (!text || text === 'لم يتم العثور على أي نتيجة بعد') {
+                        showAlert('لا يوجد محتوى لفتحه');
+                        return;
+                    }
+                    
+                    if (text.startsWith('http://') || text.startsWith('https://')) {
+                        window.open(text, '_blank');
+                    } else if (text.startsWith('mailto:')) {
+                        window.location.href = text;
+                    } else if (text.startsWith('tel:')) {
+                        window.location.href = text;
+                    } else if (text.startsWith('sms:')) {
+                        window.location.href = text;
+                    } else {
+                        showAlert('لا يمكن فتح هذا النوع من المحتوى');
+                    }
+                    vibrate();
+                });
+                
+                // حفظ النتيجة
+                saveBtn.addEventListener('click', () => {
+                    const text = resultText.textContent;
+                    if (!text || text === 'لم يتم العثور على أي نتيجة بعد') {
+                        showAlert('لا يوجد محتوى لحفظه');
+                        return;
+                    }
+                    
+                    let type = 'text';
+                    let title = text.substring(0, 20) + (text.length > 20 ? '...' : '');
+                    
+                    if (text.startsWith('http://') || text.startsWith('https://')) {
+                        type = 'url';
+                        title = `رابط: ${title}`;
+                    } else if (text.startsWith('mailto:')) {
+                        type = 'email';
+                        title = `بريد: ${text.replace('mailto:', '').split('?')[0]}`;
+                    } else if (text.startsWith('tel:')) {
+                        type = 'phone';
+                        title = `هاتف: ${text.replace('tel:', '')}`;
+                    } else if (text.startsWith('sms:')) {
+                        type = 'sms';
+                        title = `رسالة: ${text.replace('sms:', '').split('?')[0]}`;
+                    } else if (text.startsWith('WIFI:')) {
+                        type = 'wifi';
+                        title = `واي فاي: ${text.split('S:')[1].split(';')[0]}`;
+                    } else if (text.startsWith('BEGIN:VCARD')) {
+                        type = 'contact';
+                        const nameMatch = text.match(/FN:([^\n]+)/);
+                        title = `اتصال: ${nameMatch ? nameMatch[1] : 'معلومات اتصال'}`;
+                    } else if (text.startsWith('BEGIN:VEVENT')) {
+                        type = 'event';
+                        const titleMatch = text.match(/SUMMARY:([^\n]+)/);
+                        title = `حدث: ${titleMatch ? titleMatch[1] : 'حدث تقويم'}`;
+                    } else if (text.startsWith('bitcoin:')) {
+                        type = 'Bitcoin';
+                        title = `Bitcoin: ${text.replace('bitcoin:', '').split('?')[0].substring(0, 8)}...`;
+                    } else if (text.startsWith('bank://')) {
+                        type = 'دفع';
+                        title = `دفع: ${text.split('name=')[1]?.split('&')[0] || 'دفع إلكتروني'}`;
+                    }
+                    
+                    addToHistory({
+                        type: 'scanned',
+                        content: text,
+                        title: title,
+                        date: new Date().toLocaleString(),
+                        resultType: type.toLowerCase()
+                    });
+                    
+                    showAlert('تم حفظ النتيجة في السجل');
+                    vibrate();
+                });
+                
+                // زر المصباح
+                torchBtn.addEventListener('click', toggleTorch);
+                
+                function toggleTorch() {
+                    if (!stream) return;
+                    
+                    const track = stream.getVideoTracks()[0];
+                    if (!track || !track.getCapabilities().torch) return;
+                    
+                    state.torchActive = !state.torchActive;
+                    
+                    try {
+                        track.applyConstraints({
+                            advanced: [{ torch: state.torchActive }]
+                        });
+                        
+                        torchBtn.classList.toggle('active', state.torchActive);
+                        vibrate();
+                    } catch (err) {
+                        console.error('Error toggling torch:', err);
+                    }
+                }
+                
+                // عرض طلب إذن الكاميرا
+                function showCameraPermissionRequest() {
+                    const template = document.getElementById('permission-template');
+                    const clone = template.content.cloneNode(true);
+                    document.body.appendChild(clone);
+                    
+                    const permissionOverlay = document.querySelector('.permission-overlay');
+                    const permissionAllow = document.getElementById('permission-allow');
+                    const permissionDeny = document.getElementById('permission-deny');
+                    
+                    permissionAllow.addEventListener('click', () => {
+                        state.cameraPermissionRequested = true;
+                        permissionOverlay.remove();
+                        startScanning();
+                        vibrate();
+                    });
+                    
+                    permissionDeny.addEventListener('click', () => {
+                        permissionOverlay.remove();
+                        showAlert('لا يمكن استخدام الماسح الضوئي بدون إذن الكاميرا');
+                        vibrate();
+                    });
+                }
+                
+                async function startScanning() {
+                    scanBtn.style.display = 'none';
+                    stopScanBtn.style.display = 'block';
+                    scanResult.classList.remove('active');
+                    scanning = true;
+                    state.scannerActive = true;
+                    scannerLoading.style.display = 'block';
+                    
+                    // طلب إذن الكاميرا مع خيارات متوافقة
+                    const constraints = {
+                        video: {
+                            facingMode: 'environment',
+                            width: { min: 640, ideal: 1280, max: 1920 },
+                            height: { min: 480, ideal: 720, max: 1080 }
+                        }
+                    };
+                    
+                    try {
+                        // طلب الإذن أولاً
+                        stream = await navigator.mediaDevices.getUserMedia(constraints);
+                        
+                        // إذا وصلنا إلى هنا، يعني تم منح الإذن
+                        video.srcObject = stream;
+                        await video.play();
+                        
+                        // تفعيل زر المصباح إذا كان الجهاز يدعمه
+                        const track = stream.getVideoTracks()[0];
+                        if (track && track.getCapabilities().torch) {
+                            torchBtn.style.display = 'flex';
+                        } else {
+                            torchBtn.style.display = 'none';
+                        }
+                        
+                        scannerLoading.style.display = 'none';
+                        
+                        // بدء عملية المسح
+                        animationFrameId = requestAnimationFrame(tick);
+                    } catch (err) {
+                        console.error("Camera error:", err);
+                        scannerLoading.style.display = 'none';
+                        
+                        let errorMessage = "لا يمكن الوصول إلى الكاميرا.";
+                        if (err.name === 'NotAllowedError') {
+                            errorMessage = "تم رفض الإذن للوصول إلى الكاميرا. يرجى التحقق من إعدادات المتصفح.";
+                        } else if (err.name === 'NotFoundError') {
+                            errorMessage = "لم يتم العثور على كاميرا متوافقة.";
+                        } else if (err.name === 'NotReadableError') {
+                            errorMessage = "تعذر قراءة بيانات الكاميرا. قد تكون قيد الاستخدام من قبل تطبيق آخر.";
+                        }
+                        
+                        showAlert(errorMessage);
+                        stopScanning();
+                    }
+                    
+                    vibrate();
+                }
+                
+                function stopScanning() {
+                    scanning = false;
+                    state.scannerActive = false;
+                    scanBtn.style.display = 'block';
+                    stopScanBtn.style.display = 'none';
+                    state.torchActive = false;
+                    
+                    // إيقاف المصباح إذا كان يعمل
+                    if (stream) {
+                        const track = stream.getVideoTracks()[0];
+                        if (track && track.getCapabilities().torch) {
+                            try {
+                                track.applyConstraints({ advanced: [{ torch: false }] });
+                            } catch (err) {
+                                console.error('Error turning off torch:', err);
+                            }
+                        }
+                    }
+                    
+                    // إلغاء طلب الإطار المتحرك
+                    if (animationFrameId) {
+                        cancelAnimationFrame(animationFrameId);
+                        animationFrameId = null;
+                    }
+                    
+                    if (stream) {
+                        stream.getTracks().forEach(track => {
+                            track.stop();
+                            track.enabled = false;
+                        });
+                        stream = null;
+                        video.srcObject = null;
+                    }
+                }
+                
+                function tick() {
+                    if (!scanning) return;
+                    
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        
+                        try {
+                            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                inversionAttempts: 'dontInvert',
+                                threshold: 50
+                            });
+                            
+                            if (code) {
+                                handleScanResult(code.data);
+                            }
+                        } catch (error) {
+                            console.error("QR scan error:", error);
+                            stopScanning();
+                            showAlert("حدث خطأ أثناء مسح QR Code. يرجى المحاولة مرة أخرى.");
+                        }
+                    }
+                    
+                    animationFrameId = requestAnimationFrame(tick);
+                }
+                
+                function handleImageUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    // التحقق من نوع الملف
+                    if (!file.type.match('image.*')) {
+                        showAlert('الرجاء اختيار ملف صورة صالح');
+                        return;
+                    }
+                    
+                    // التحقق من حجم الملف (لا يزيد عن 5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                        showAlert('حجم الصورة كبير جداً. الرجاء اختيار صورة أصغر من 5MB');
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        img.onload = function() {
+                            // تحديد أقصى حجم للمعالجة
+                            const maxSize = 1000;
+                            let width = img.width;
+                            let height = img.height;
+                            
+                            if (width > maxSize || height > maxSize) {
+                                const ratio = Math.min(maxSize / width, maxSize / height);
+                                width = Math.floor(width * ratio);
+                                height = Math.floor(height * ratio);
+                            }
+                            
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            
+                            try {
+                                const imageData = ctx.getImageData(0, 0, width, height);
+                                const code = jsQR(imageData.data, width, height, {
+                                    inversionAttempts: 'dontInvert',
+                                    threshold: 50
+                                });
+                                
+                                if (code) {
+                                    handleScanResult(code.data);
+                                } else {
+                                    showAlert('لم يتم العثور على رمز QR في الصورة');
+                                }
+                            } catch (error) {
+                                console.error("QR scan error:", error);
+                                showAlert("حدث خطأ أثناء معالجة الصورة. يرجى اختيار صورة أخرى.");
+                            }
+                        };
+                        
+                        img.onerror = function() {
+                            showAlert('تعذر تحميل الصورة. يرجى اختيار صورة أخرى.');
+                        };
+                        
+                        img.src = e.target.result;
+                    };
+                    
+                    reader.onerror = function() {
+                        showAlert('تعذر قراءة الملف. يرجى اختيار ملف آخر.');
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+                
+                function handleScanResult(data) {
+                    resultText.textContent = data;
+                    
+                    // تحديد نوع النتيجة
+                    let type = 'نص';
+                    if (data.startsWith('http://') || data.startsWith('https://')) {
+                        type = 'رابط';
+                    } else if (data.startsWith('mailto:')) {
+                        type = 'بريد';
+                    } else if (data.startsWith('tel:')) {
+                        type = 'هاتف';
+                    } else if (data.startsWith('sms:')) {
+                        type = 'رسالة';
+                    } else if (data.startsWith('WIFI:')) {
+                        type = 'واي فاي';
+                    } else if (data.startsWith('BEGIN:VCARD')) {
+                        type = 'اتصال';
+                    } else if (data.startsWith('BEGIN:VEVENT')) {
+                        type = 'حدث';
+                    } else if (data.startsWith('bitcoin:')) {
+                        type = 'Bitcoin';
+                    } else if (data.startsWith('bank://')) {
+                        type = 'دفع';
+                    }
+                    
+                    resultType.textContent = type;
+                    scanResult.classList.add('active');
+                    stopScanning();
+                    vibrate();
+                    
+                    // إشعار إذا كان مفعلًا
+                    if (state.notifications) {
+                        showNotification(`تم مسح ${type} بنجاح`);
+                    }
+                    
+                    // حفظ تلقائي إذا كان مفعلًا
+                    if (state.autoSave) {
+                        let title = data.substring(0, 20) + (data.length > 20 ? '...' : '');
+                        
+                        if (data.startsWith('http://') || data.startsWith('https://')) {
+                            title = `رابط: ${title}`;
+                        } else if (data.startsWith('mailto:')) {
+                            title = `بريد: ${data.replace('mailto:', '').split('?')[0]}`;
+                        } else if (data.startsWith('tel:')) {
+                            title = `هاتف: ${data.replace('tel:', '')}`;
+                        } else if (data.startsWith('sms:')) {
+                            title = `رسالة: ${data.replace('sms:', '').split('?')[0]}`;
+                        } else if (data.startsWith('WIFI:')) {
+                            title = `واي فاي: ${data.split('S:')[1].split(';')[0]}`;
+                        } else if (data.startsWith('BEGIN:VCARD')) {
+                            const nameMatch = data.match(/FN:([^\n]+)/);
+                            title = `اتصال: ${nameMatch ? nameMatch[1] : 'معلومات اتصال'}`;
+                        } else if (data.startsWith('BEGIN:VEVENT')) {
+                            const titleMatch = data.match(/SUMMARY:([^\n]+)/);
+                            title = `حدث: ${titleMatch ? titleMatch[1] : 'حدث تقويم'}`;
+                        } else if (data.startsWith('bitcoin:')) {
+                            title = `Bitcoin: ${data.replace('bitcoin:', '').split('?')[0].substring(0, 8)}...`;
+                        } else if (data.startsWith('bank://')) {
+                            title = `دفع: ${data.split('name=')[1]?.split('&')[0] || 'دفع إلكتروني'}`;
+                        }
+                        
+                        addToHistory({
+                            type: 'scanned',
+                            content: data,
+                            title: title,
+                            date: new Date().toLocaleString(),
+                            resultType: type.toLowerCase()
+                        });
+                    }
+                }
+            }
+            
+            // تبويب السجل
+            function initHistoryTab() {
+                const historyList = document.getElementById('history-list');
+                const clearHistoryBtn = document.getElementById('clear-history-btn');
+                
+                // تحميل السجل
+                function loadHistory() {
+                    historyList.innerHTML = '';
+                    
+                    if (state.history.length === 0) {
+                        historyList.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-history"></i>
+                                <p>لا توجد عناصر في السجل بعد</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    // عرض عدد العناصر المسموح به
+                    const historyInfo = document.createElement('div');
+                    historyInfo.style.padding = '10px';
+                    historyInfo.style.fontSize = '12px';
+                    historyInfo.style.color = 'var(--gray)';
+                    historyInfo.style.textAlign = 'center';
+                    historyInfo.textContent = `عرض ${state.history.length} من ${state.maxHistoryItems} عنصر`;
+                    historyList.appendChild(historyInfo);
+                    
+                    state.history.forEach((item, index) => {
+                        const template = document.getElementById('history-item-template');
+                        const clone = template.content.cloneNode(true);
+                        
+                        const title = clone.querySelector('[data-title]');
+                        const date = clone.querySelector('[data-date]');
+                        const icon = clone.querySelector('.history-icon i');
+                        const viewBtn = clone.querySelector('.view-btn');
+                        const deleteBtn = clone.querySelector('.delete-btn');
+                        
+                        title.textContent = item.title;
+                        date.textContent = item.date;
+                        
+                        // تغيير الأيقونة حسب النوع
+                        if (item.type === 'scanned') {
+                            icon.className = 'fas fa-camera';
+                        }
+                        
+                        // تغيير لون الخلفية حسب النوع
+                        const iconContainer = clone.querySelector('.history-icon');
+                        if (item.resultType === 'url') {
+                            iconContainer.style.background = '#4a6bff';
+                        } else if (item.resultType === 'email') {
+                            iconContainer.style.background = '#10b981';
+                        } else if (item.resultType === 'phone' || item.resultType === 'sms') {
+                            iconContainer.style.background = '#8b5cf6';
+                        } else if (item.resultType === 'wifi') {
+                            iconContainer.style.background = '#f59e0b';
+                        } else if (item.resultType === 'contact') {
+                            iconContainer.style.background = '#ef4444';
+                        } else if (item.resultType === 'event') {
+                            iconContainer.style.background = '#ec4899';
+                        } else if (item.resultType === 'bitcoin') {
+                            iconContainer.style.background = '#f7931a';
+                        } else if (item.resultType === 'payment') {
+                            iconContainer.style.background = '#06d6a0';
+                        }
+                        
+                        // أحداث الأزرار
+                        viewBtn.addEventListener('click', () => viewHistoryItem(index));
+                        deleteBtn.addEventListener('click', () => deleteHistoryItem(index));
+                        
+                        historyList.appendChild(clone);
+                    });
+                }
+                
+                // مسح السجل
+                clearHistoryBtn.addEventListener('click', () => {
+                    showConfirm('هل أنت متأكد من أنك تريد مسح سجل QR Code بالكامل؟', () => {
+                        state.history = [];
+                        saveHistory();
+                        loadHistory();
+                        showAlert('تم مسح السجل بنجاح');
+                        vibrate();
+                    });
+                });
+                
+                // عرض عنصر من السجل
+                function viewHistoryItem(index) {
+                    const item = state.history[index];
+                    
+                    // إنشاء عرض معاينة للعنصر
+                    let previewHTML = `
+                        <div class="card">
+                            <div class="card-title">
+                                <i class="fas fa-${item.type === 'generated' ? 'qrcode' : 'camera'}"></i>
+                                ${item.title}
+                            </div>
+                            <p style="margin-bottom: 15px; color: var(--gray);">${new Date(item.date).toLocaleString()}</p>
+                    `;
+                    
+                    if (item.type === 'generated') {
+                        previewHTML += `
+                            <div id="history-qr-preview" style="margin: 0 auto;"></div>
+                            <div class="action-buttons" style="margin-top: 20px;">
+                                <button class="btn" id="history-download-btn">
+                                    <i class="fas fa-download"></i> تحميل
+                                </button>
+                                <button class="btn btn-secondary" id="history-share-btn">
+                                    <i class="fas fa-share-alt"></i> مشاركة
+                                </button>
+                                <button class="btn btn-secondary" id="history-fullscreen-btn">
+                                    <i class="fas fa-expand"></i> عرض كامل
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        previewHTML += `
+                            <div class="scan-result active">
+                                <span class="result-type">${item.resultType || 'نص'}</span>
+                                <p>${item.content}</p>
+                                <div class="result-actions">
+                                    <button class="btn btn-secondary" id="history-open-btn" ${!item.content.startsWith('http') && !item.content.startsWith('mailto') && !item.content.startsWith('tel') && !item.content.startsWith('sms') ? 'style="display:none"' : ''}>
+                                        <i class="fas fa-external-link-alt"></i> فتح
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    previewHTML += `</div>`;
+                    
+                    // عرض المعاينة في popup
+                    showPopup(item.title, previewHTML, () => {
+                        if (item.type === 'generated') {
+                            // إنشاء QR Code للمعاينة
+                            const previewContainer = document.getElementById('history-qr-preview');
+                            try {
+                                const qrOptions = {
+                                    width: 200,
+                                    height: 200,
+                                    colorDark: item.color || '#000000',
+                                    colorLight: '#ffffff',
+                                    margin: 2,
+                                    correctLevel: QRCode.CorrectLevel.H
+                                };
+                                
+                                // إنشاء QR Code باستخدام المكتبة المحدثة
+                                new QRCode(previewContainer, {
+                                    text: item.content,
+                                    ...qrOptions
+                                });
+                                
+                                // أحداث الأزرار
+                                document.getElementById('history-download-btn').addEventListener('click', () => {
+                                    const canvas = previewContainer.querySelector('canvas');
+                                    if (canvas) {
+                                        const link = document.createElement('a');
+                                        link.download = `qrcode-${new Date().getTime()}.png`;
+                                        link.href = canvas.toDataURL('image/png');
+                                        link.click();
+                                        vibrate();
+                                    }
+                                });
+                                
+                                document.getElementById('history-share-btn').addEventListener('click', async () => {
+                                    const canvas = previewContainer.querySelector('canvas');
+                                    if (canvas) {
+                                        try {
+                                            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                                            const file = new File([blob], 'qrcode.png', { type: 'image/png' });
+                                            
+                                            if (navigator.share && navigator.canShare({ files: [file] })) {
+                                                await navigator.share({
+                                                    title: 'QR Code من السجل',
+                                                    files: [file]
+                                                });
+                                            } else {
+                                                const link = document.createElement('a');
+                                                link.href = URL.createObjectURL(blob);
+                                                link.download = 'qrcode.png';
+                                                link.click();
+                                                showAlert('تم تحميل QR Code بدلاً من المشاركة');
+                                            }
+                                            vibrate();
+                                        } catch (err) {
+                                            console.error('Error sharing:', err);
+                                            showAlert('تعذر المشاركة. يرجى المحاولة لاحقًا.');
+                                        }
+                                    }
+                                });
+                                
+                                document.getElementById('history-fullscreen-btn').addEventListener('click', () => {
+                                    const canvas = previewContainer.querySelector('canvas');
+                                    if (!canvas) {
+                                        showAlert('لا يوجد QR Code لعرضه');
+                                        return;
+                                    }
+                                    
+                                    const template = document.getElementById('fullscreen-template');
+                                    const clone = template.content.cloneNode(true);
+                                    document.body.appendChild(clone);
+                                    
+                                    const fullscreenQr = document.getElementById('fullscreen-qr');
+                                    fullscreenQr.src = canvas.toDataURL('image/png');
+                                    
+                                    document.getElementById('fullscreen-close').addEventListener('click', () => {
+                                        document.querySelector('.fullscreen-mode').remove();
+                                        vibrate();
+                                    });
+                                    
+                                    vibrate();
+                                });
+                            } catch (error) {
+                                console.error("QR generation error:", error);
+                                previewContainer.innerHTML = '<p style="color: var(--danger);">حدث خطأ أثناء إنشاء QR Code</p>';
+                            }
+                        } else {
+                            // أحداث الأزرار للعناصر الممسوحة
+                            if (document.getElementById('history-open-btn')) {
+                                document.getElementById('history-open-btn').addEventListener('click', () => {
+                                    if (item.content.startsWith('http://') || item.content.startsWith('https://')) {
+                                        window.open(item.content, '_blank');
+                                    } else if (item.content.startsWith('mailto:')) {
+                                        window.location.href = item.content;
+                                    } else if (item.content.startsWith('tel:')) {
+                                        window.location.href = item.content;
+                                    } else if (item.content.startsWith('sms:')) {
+                                        window.location.href = item.content;
+                                    }
+                                    vibrate();
+                                });
+                            }
+                        }
+                    });
+                }
+                
+                // حذف عنصر من السجل
+                function deleteHistoryItem(index) {
+                    showConfirm('هل أنت متأكد من أنك تريد حذف هذا العنصر من السجل؟', () => {
+                        state.history.splice(index, 1);
+                        saveHistory();
+                        loadHistory();
+                        vibrate();
+                        showAlert('تم حذف العنصر من السجل');
+                    });
+                }
+                
+                // تحميل السجل أول مرة
+                loadHistory();
+            }
+            
+            // تبويب الإعدادات
+            function initSettingsTab() {
+                const darkModeToggle = document.getElementById('dark-mode');
+                const vibrationToggle = document.getElementById('vibration');
+                const notificationsToggle = document.getElementById('notifications');
+                const autoSaveToggle = document.getElementById('auto-save');
+                const lowPerformanceToggle = document.getElementById('low-performance');
+                const rateAppBtn = document.getElementById('rate-app-btn');
+                const feedbackBtn = document.getElementById('feedback-btn');
+                const clearHistoryBtn = document.getElementById('clear-history-btn');
+                
+                // تهيئة التبديلات
+                darkModeToggle.checked = state.darkMode;
+                vibrationToggle.checked = state.vibration;
+                notificationsToggle.checked = state.notifications;
+                autoSaveToggle.checked = state.autoSave;
+                lowPerformanceToggle.checked = state.lowPerformance;
+                
+                // أحداث التبديل
+                darkModeToggle.addEventListener('change', () => {
+                    state.darkMode = darkModeToggle.checked;
+                    localStorage.setItem('darkMode', state.darkMode);
+                    applyDarkMode();
+                    vibrate();
+                });
+                
+                vibrationToggle.addEventListener('change', () => {
+                    state.vibration = vibrationToggle.checked;
+                    localStorage.setItem('vibration', state.vibration);
+                    vibrate();
+                });
+                
+                notificationsToggle.addEventListener('change', () => {
+                    state.notifications = notificationsToggle.checked;
+                    localStorage.setItem('notifications', state.notifications);
+                    
+                    if (state.notifications && Notification.permission !== 'granted') {
+                        Notification.requestPermission();
+                    }
+                    
+                    vibrate();
+                });
+                
+                autoSaveToggle.addEventListener('change', () => {
+                    state.autoSave = autoSaveToggle.checked;
+                    localStorage.setItem('autoSave', state.autoSave);
+                    vibrate();
+                });
+                
+                lowPerformanceToggle.addEventListener('change', () => {
+                    state.lowPerformance = lowPerformanceToggle.checked;
+                    localStorage.setItem('lowPerformance', state.lowPerformance);
+                    
+                    if (state.lowPerformance) {
+                        document.body.classList.add('low-performance-mode');
+                    } else {
+                        document.body.classList.remove('low-performance-mode');
+                    }
+                    
+                    vibrate();
+                });
+                
+                // تقييم التطبيق
+                rateAppBtn.addEventListener('click', () => {
+                    const rating = Math.floor(Math.random() * 5) + 1; // تقييم عشوائي من 1-5
+                    const feedback = {
+                        type: 'rating',
+                        value: rating,
+                        date: new Date().toISOString()
+                    };
+                    
+                    state.feedbacks.push(feedback);
+                    localStorage.setItem('qrFeedbacks', JSON.stringify(state.feedbacks));
+                    
+                    showAlert(`شكراً لك على تقييم التطبيق ب${rating} نجوم!`);
+                    vibrate();
+                });
+                
+                // إرسال ملاحظات
+                feedbackBtn.addEventListener('click', () => {
+                    showPopup('إرسال ملاحظات', `
+                        <div class="card">
+                            <div class="input-group">
+                                <label for="feedback-email">بريدك الإلكتروني (اختياري)</label>
+                                <input type="email" id="feedback-email" placeholder="example@example.com">
+                            </div>
+                            <div class="input-group">
+                                <label for="feedback-message">الملاحظات</label>
+                                <textarea id="feedback-message" placeholder="ما رأيك في التطبيق؟" rows="5"></textarea>
+                            </div>
+                            <button class="btn" id="send-feedback-btn">
+                                <i class="fas fa-paper-plane"></i> إرسال
+                            </button>
+                        </div>
+                    `, () => {
+                        document.getElementById('send-feedback-btn').addEventListener('click', () => {
+                            const email = document.getElementById('feedback-email').value.trim();
+                            const message = document.getElementById('feedback-message').value.trim();
+                            
+                            if (!message) {
+                                showAlert('الرجاء إدخال ملاحظاتك');
+                                return;
+                            }
+                            
+                            const feedback = {
+                                type: 'feedback',
+                                email: email,
+                                message: message,
+                                date: new Date().toISOString()
+                            };
+                            
+                            state.feedbacks.push(feedback);
+                            localStorage.setItem('qrFeedbacks', JSON.stringify(state.feedbacks));
+                            
+                            showAlert('شكراً لك على ملاحظاتك!');
+                            vibrate();
+                        });
+                    });
+                });
+                
+                // عرض معلومات الجهاز
+                function detectDeviceInfo() {
+                    // نوع الجهاز
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    const deviceType = isMobile ? 'هاتف محمول' : 'كمبيوتر';
+                    document.getElementById('device-type').textContent = deviceType;
+                    
+                    // نظام التشغيل
+                    let os = 'غير معروف';
+                    const userAgent = navigator.userAgent;
+                    
+                    if (userAgent.includes('Windows')) os = 'Windows';
+                    else if (userAgent.includes('Mac')) os = 'Mac OS';
+                    else if (userAgent.includes('Linux')) os = 'Linux';
+                    else if (userAgent.includes('Android')) os = 'Android';
+                    else if (userAgent.includes('iOS') || userAgent.includes('iPhone') || userAgent.includes('iPad')) os = 'iOS';
+                    
+                    document.getElementById('device-os').textContent = os;
+                    
+                    // المتصفح
+                    let browser = 'غير معروف';
+                    
+                    if (userAgent.includes('Firefox')) browser = 'Firefox';
+                    else if (userAgent.includes('Chrome')) browser = 'Chrome';
+                    else if (userAgent.includes('Safari')) browser = 'Safari';
+                    else if (userAgent.includes('Edge')) browser = 'Edge';
+                    else if (userAgent.includes('Opera')) browser = 'Opera';
+                    else if (userAgent.includes('MSIE') || userAgent.includes('Trident/')) browser = 'Internet Explorer';
+                    
+                    document.getElementById('device-browser').textContent = browser;
+                    
+                    // ذاكرة الجهاز
+                    if (navigator.deviceMemory) {
+                        document.getElementById('device-memory').textContent = `${navigator.deviceMemory} GB`;
+                    } else {
+                        document.getElementById('device-memory').textContent = 'غير معروف';
+                    }
+                    
+                    // أنوية المعالج
+                    if (navigator.hardwareConcurrency) {
+                        document.getElementById('device-cores').textContent = `${navigator.hardwareConcurrency} أنوية`;
+                    } else {
+                        document.getElementById('device-cores').textContent = 'غير معروف';
+                    }
+                    
+                    // أداء الجهاز
+                    let performanceLevel = 'عالٍ';
+                    if (state.lowPerformance) {
+                        performanceLevel = 'منخفض';
+                    } else if (navigator.deviceMemory && navigator.deviceMemory < 4) {
+                        performanceLevel = 'متوسط';
+                    }
+                    
+                    document.getElementById('device-performance').textContent = performanceLevel;
+                }
+                
+                // تحميل معلومات الجهاز عند فتح تبويب الإعدادات
+                detectDeviceInfo();
+            }
+            
+            // وظائف مساعدة
+            function addToHistory(item) {
+                state.history.unshift(item);
+                if (state.history.length > state.maxHistoryItems) {
+                    state.history = state.history.slice(0, state.maxHistoryItems);
+                }
+                saveHistory();
+                
+                if (state.currentTab === 'history') {
+                    loadTab('history');
+                }
+            }
+            
+            function saveHistory() {
+                try {
+                    localStorage.setItem('qrHistory', JSON.stringify(state.history));
+                } catch (error) {
+                    console.error("Error saving history:", error);
+                    if (error.name === 'QuotaExceededError') {
+                        state.history = state.history.slice(0, Math.floor(state.maxHistoryItems / 2));
+                        try {
+                            localStorage.setItem('qrHistory', JSON.stringify(state.history));
+                            showAlert('تم تخفيض عدد العناصر المحفوظة بسبب مساحة التخزين المحدودة');
+                        } catch (e) {
+                            showAlert('تعذر حفظ السجل بسبب مساحة التخزين المحدودة');
+                        }
+                    }
+                }
+            }
+            
+            function vibrate() {
+                if (state.vibration && 'vibrate' in navigator) {
+                    try {
+                        navigator.vibrate(50);
+                    } catch (e) {
+                        console.error("Vibration error:", e);
+                    }
+                }
+            }
+            
+            function showAlert(message, callback) {
+                const alert = document.createElement('div');
+                alert.style.position = 'fixed';
+                alert.style.bottom = '20px';
+                alert.style.left = '50%';
+                alert.style.transform = 'translateX(-50%)';
+                alert.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+                alert.style.color = 'white';
+                alert.style.padding = '12px 20px';
+                alert.style.borderRadius = '8px';
+                alert.style.zIndex = '1000';
+                alert.style.maxWidth = '80%';
+                alert.style.textAlign = 'center';
+                alert.style.animation = 'fadeIn 0.3s';
+                alert.textContent = message;
+                
+                document.body.appendChild(alert);
+                
+                setTimeout(() => {
+                    alert.style.animation = 'fadeIn 0.3s reverse';
+                    setTimeout(() => {
+                        document.body.removeChild(alert);
+                        if (callback) callback();
+                    }, 300);
+                }, 3000);
+            }
+            
+            function showNotification(message) {
+                if (!state.notifications) return;
+                
+                if ('Notification' in window) {
+                    if (Notification.permission === 'granted') {
+                        new Notification('QR Master', { body: message });
+                    } else if (Notification.permission !== 'denied') {
+                        Notification.requestPermission().then(permission => {
+                            if (permission === 'granted') {
+                                new Notification('QR Master', { body: message });
+                            }
+                        });
+                    }
+                }
+            }
+            
+            function showConfirm(message, confirmCallback, cancelCallback, confirmText = 'موافق', cancelText = 'إلغاء') {
+                const confirmOverlay = document.createElement('div');
+                confirmOverlay.style.position = 'fixed';
+                confirmOverlay.style.top = '0';
+                confirmOverlay.style.left = '0';
+                confirmOverlay.style.width = '100%';
+                confirmOverlay.style.height = '100%';
+                confirmOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                confirmOverlay.style.zIndex = '1000';
+                confirmOverlay.style.display = 'flex';
+                confirmOverlay.style.justifyContent = 'center';
+                confirmOverlay.style.alignItems = 'center';
+                confirmOverlay.style.animation = 'fadeIn 0.3s';
+                
+                const confirmBox = document.createElement('div');
+                confirmBox.style.backgroundColor = 'var(--lighter)';
+                confirmBox.style.padding = '20px';
+                confirmBox.style.borderRadius = '12px';
+                confirmBox.style.maxWidth = '80%';
+                confirmBox.style.textAlign = 'center';
+                confirmBox.style.boxShadow = 'var(--shadow)';
+                
+                confirmBox.innerHTML = `
+                    <h3 style="margin-bottom: 15px; color: var(--dark);">${message}</h3>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button id="confirm-cancel" style="padding: 8px 20px; background: var(--light); color: var(--dark); border: none; border-radius: 6px; cursor: pointer;">${cancelText}</button>
+                        <button id="confirm-ok" style="padding: 8px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer;">${confirmText}</button>
+                    </div>
+                `;
+                
+                confirmOverlay.appendChild(confirmBox);
+                document.body.appendChild(confirmOverlay);
+                
+                confirmOverlay.addEventListener('click', (e) => {
+                    if (e.target === confirmOverlay) {
+                        closeConfirm();
+                        if (cancelCallback) cancelCallback();
+                    }
+                });
+                
+                function closeConfirm() {
+                    confirmOverlay.style.animation = 'fadeIn 0.3s reverse';
+                    setTimeout(() => {
+                        document.body.removeChild(confirmOverlay);
+                    }, 300);
+                }
+                
+                document.getElementById('confirm-cancel').addEventListener('click', () => {
+                    closeConfirm();
+                    if (cancelCallback) cancelCallback();
+                    vibrate();
+                });
+                
+                document.getElementById('confirm-ok').addEventListener('click', () => {
+                    closeConfirm();
+                    if (confirmCallback) confirmCallback();
+                    vibrate();
+                });
+            }
+            
+            function showPopup(title, content, onReady) {
+                const popupOverlay = document.createElement('div');
+                popupOverlay.style.position = 'fixed';
+                popupOverlay.style.top = '0';
+                popupOverlay.style.left = '0';
+                popupOverlay.style.width = '100%';
+                popupOverlay.style.height = '100%';
+                popupOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                popupOverlay.style.zIndex = '1000';
+                popupOverlay.style.display = 'flex';
+                popupOverlay.style.justifyContent = 'center';
+                popupOverlay.style.alignItems = 'center';
+                popupOverlay.style.animation = 'fadeIn 0.3s';
+                
+                const popupBox = document.createElement('div');
+                popupBox.style.backgroundColor = 'var(--lighter)';
+                popupBox.style.borderRadius = '12px';
+                popupBox.style.maxWidth = '90%';
+                popupBox.style.maxHeight = '80vh';
+                popupBox.style.overflowY = 'auto';
+                popupBox.style.boxShadow = 'var(--shadow)';
+                
+                popupBox.innerHTML = `
+                    <div style="position: sticky; top: 0; background: var(--lighter); padding: 15px; border-bottom: 1px solid rgba(0, 0, 0, 0.05); display: flex; justify-content: space-between; align-items: center; z-index: 1;">
+                        <h3 style="margin: 0; color: var(--dark);">${title}</h3>
+                        <button id="popup-close" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--gray);">&times;</button>
+                    </div>
+                    <div style="padding: 20px;">
+                        ${content}
+                    </div>
+                `;
+                
+                popupOverlay.appendChild(popupBox);
+                document.body.appendChild(popupOverlay);
+                
+                popupOverlay.addEventListener('click', (e) => {
+                    if (e.target === popupOverlay) {
+                        closePopup();
+                    }
+                });
+                
+                function closePopup() {
+                    popupOverlay.style.animation = 'fadeIn 0.3s reverse';
+                    setTimeout(() => {
+                        document.body.removeChild(popupOverlay);
+                    }, 300);
+                }
+                
+                document.getElementById('popup-close').addEventListener('click', closePopup);
+                
+                if (onReady) onReady();
+            }
+            
+            // طلب إذن الإشعارات عند التحميل
+            if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                setTimeout(() => {
+                    Notification.requestPermission();
+                }, 3000);
+            }
+            
+            // تنظيف الموارد عند إغلاق الصفحة
+            window.addEventListener('beforeunload', () => {
+                if (state.scannerActive) {
+                    stopScanning();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
